@@ -23,6 +23,9 @@ pub trait Fuzzer {
     /// Get [`FuzzerStats`] for the instance
     async fn get_stats(&self) -> FuzzerStats;
 
+    /// Whether the fuzz instance has started, based on reported stats.
+    async fn has_started_fuzzing(&self) -> bool;
+
     /// Path to the corpus that the fuzzer pushes new inputs to.
     fn get_push_corpus(&self) -> Option<PathBuf>;
     /// Path to a corpus that the fuzzer pulls new inputs from.

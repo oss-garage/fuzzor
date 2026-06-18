@@ -112,6 +112,13 @@ impl Fuzzer for AflppFuzzer {
         stats
     }
 
+    async fn has_started_fuzzing(&self) -> bool {
+        self.out_dir
+            .join(self.id.to_string())
+            .join("fuzzer_stats")
+            .exists()
+    }
+
     fn get_push_corpus(&self) -> Option<PathBuf> {
         if self.id == 0 {
             Some(self.out_dir.join(self.id.to_string()).join("queue"))

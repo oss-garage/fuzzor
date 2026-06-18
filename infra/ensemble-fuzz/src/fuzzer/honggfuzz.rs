@@ -20,6 +20,7 @@ pub struct HonggFuzzer {
     num_threads: u64,
 
     last_stats: Arc<Mutex<FuzzerStats>>,
+    has_seen_stats: Arc<Mutex<bool>>,
     tail_stats_proc: Option<tokio::process::Child>,
 }
 
@@ -32,6 +33,7 @@ impl HonggFuzzer {
             num_threads,
 
             last_stats: Arc::new(Mutex::new(FuzzerStats::default())),
+            has_seen_stats: Arc::new(Mutex::new(false)),
             tail_stats_proc: None,
         }
     }
@@ -50,6 +52,10 @@ impl Fuzzer for HonggFuzzer {
     async fn get_stats(&self) -> FuzzerStats {
         let stats = self.last_stats.lock().await.clone();
         stats.clone()
+    }
+
+    async fn has_started_fuzzing(&self) -> bool {
+        *self.has_seen_stats.lock().await
     }
 
     fn get_push_corpus(&self) -> Option<PathBuf> {
@@ -84,6 +90,7 @@ impl Fuzzer for HonggFuzzer {
         spawn_honggfuzz_stats_parser(
             BufReader::new(tail_stats_proc.stdout.take().unwrap()),
             self.last_stats.clone(),
+            self.has_seen_stats.clone(),
         );
 
         self.tail_stats_proc = Some(tail_stats_proc);
@@ -121,6 +128,7 @@ impl Fuzzer for HonggFuzzer {
 fn spawn_honggfuzz_stats_parser(
     stdout: BufReader<tokio::process::ChildStdout>,
     last_stats: Arc<Mutex<FuzzerStats>>,
+    has_seen_stats: Arc<Mutex<bool>>,
 ) {
     let mut lines = stdout.lines();
 
@@ -143,6 +151,9 @@ fn spawn_honggfuzz_stats_parser(
             stats.saved_crashes = current_stats[5];
             // stats.saved_hangs = current_stats[6]; // hongfuzz does not save timeouts to disk :(
             // TODO corpus count
+
+            let mut seen = has_seen_stats.lock().await;
+            *seen = true;
         }
     });
 }

@@ -55,6 +55,11 @@ impl Fuzzer for NativeGoFuzzer {
         stats.clone()
     }
 
+    async fn has_started_fuzzing(&self) -> bool {
+        // Placeholder for now, Native Go doesn't report startup state.
+        true
+    }
+
     fn get_push_corpus(&self) -> Option<PathBuf> {
         Some(self.go_fuzz_cache_dir.join(self.get_harness_name()))
     }

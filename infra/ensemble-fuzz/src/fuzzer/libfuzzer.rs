@@ -72,6 +72,10 @@ impl Fuzzer for LibFuzzer {
         stats.unwrap_or(FuzzerStats::default())
     }
 
+    async fn has_started_fuzzing(&self) -> bool {
+        self.last_stats.lock().await.is_some()
+    }
+
     fn get_push_corpus(&self) -> Option<PathBuf> {
         Some(self.seeds.clone())
     }
@@ -170,6 +174,7 @@ fn spawn_libfuzzer_log_parser(
                 stability: None,
                 saved_hangs: caps["hangs"].parse().unwrap_or(0),
                 saved_crashes,
+                failed_instances: Vec::new(),
             });
         }
     });

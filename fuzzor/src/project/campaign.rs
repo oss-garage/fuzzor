@@ -199,6 +199,19 @@ where
             self.last_reported_stats = Some(stats.clone());
         }
 
+        if !stats.failed_instances.is_empty() {
+            log::error!(
+                "Fuzzer instances failed to start (harness={}, project={}): {:?}",
+                self.harness_name,
+                self.project_config.name,
+                stats.failed_instances
+            );
+
+            self.env.set_preserve(true).await;
+            self.new_state(CampaignState::Ended).await;
+            return;
+        }
+
         if !found_solutions {
             // Shortcurcuit since there are no solutions to download
             return;

@@ -128,6 +128,8 @@ pub struct FuzzerStats {
     pub saved_crashes: u64,
     #[serde(default)]
     pub saved_hangs: u64,
+    #[serde(default)]
+    pub failed_instances: Vec<String>,
 }
 
 impl Hash for FuzzerStats {

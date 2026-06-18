@@ -58,6 +58,10 @@ impl Fuzzer for SemSanFuzzer {
         stats.unwrap_or(FuzzerStats::default())
     }
 
+    async fn has_started_fuzzing(&self) -> bool {
+        self.last_stats.lock().await.is_some()
+    }
+
     fn get_push_corpus(&self) -> Option<PathBuf> {
         None
     }
@@ -175,6 +179,7 @@ fn spawn_semsan_log_parser(
                 stability: None, // Some(caps["stability"].parse().unwrap_or(0)),
                 saved_hangs: 0,  // Not stored by SemSan
                 saved_crashes: caps["solutions"].parse().unwrap_or(0),
+                failed_instances: Vec::new(),
             });
         }
     });

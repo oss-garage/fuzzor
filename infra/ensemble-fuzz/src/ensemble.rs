@@ -5,6 +5,17 @@ use tokio::{sync::mpsc::Sender, task::JoinHandle};
 
 use crate::fuzzer::{aggregate_stats, SharedFuzzer};
 
+async fn fuzzers_not_started(fuzzers: &[SharedFuzzer]) -> Vec<String> {
+    let mut not_started = Vec::new();
+    for fuzzer in fuzzers {
+        let fuzzer = fuzzer.lock().await;
+        if !fuzzer.has_started_fuzzing().await {
+            not_started.push(fuzzer.get_instance_name());
+        }
+    }
+    not_started
+}
+
 async fn sync_folders(from: PathBuf, to: PathBuf) -> Option<usize> {
     let Ok(output) = tokio::process::Command::new("rsync")
         .args([
@@ -112,9 +123,10 @@ pub async fn start_ensemble_task(
 
     let task_handle = tokio::spawn(async move {
         // Sync the global fuzzer corpus every `sync_interval` seconds.
-        use tokio::time::{interval, Duration};
+        use tokio::time::{interval, Duration, Instant};
         let mut stats_interval = interval(Duration::from_secs(stats_interval));
         let mut interval = interval(Duration::from_secs(sync_interval));
+        let startup_deadline = Instant::now() + Duration::from_secs(180);
 
         let mut quit = false;
         while !quit {
@@ -129,7 +141,11 @@ pub async fn start_ensemble_task(
             // fuzzers, so that the stats are mostly in sync (i.e. there might be more solutions in
             // the global dir than the stats indicate but not less) with the global corpus and
             // solution directory.
-            let global_stats = aggregate_stats(fuzzers.as_mut_slice(), global_corpus.clone()).await;
+            let mut global_stats =
+                aggregate_stats(fuzzers.as_mut_slice(), global_corpus.clone()).await;
+            if Instant::now() >= startup_deadline {
+                global_stats.failed_instances = fuzzers_not_started(fuzzers.as_slice()).await;
+            }
             log::info!("{:?}", global_stats);
 
             if !only_stats || global_stats.has_solutions() {
