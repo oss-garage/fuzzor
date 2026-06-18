@@ -47,52 +47,6 @@ impl AflppFuzzer {
             pull_corpus: PathBuf::new(),
         }
     }
-
-    fn fuzzer_stats_path(&self) -> PathBuf {
-        self.out_dir.join(self.id.to_string()).join("fuzzer_stats")
-    }
-
-    fn queue_dir(&self) -> PathBuf {
-        self.out_dir.join(self.id.to_string()).join("queue")
-    }
-
-    fn stderr_log_path(&self) -> PathBuf {
-        self.workspace
-            .join(format!("aflpp_instance_{}.log", self.id))
-    }
-
-    fn queue_seed_count(&self) -> Option<u64> {
-        let seed_count = std::fs::read_dir(self.queue_dir())
-            .ok()?
-            .filter_map(Result::ok)
-            .filter(|entry| entry.path().is_file())
-            .count() as u64;
-
-        (seed_count > 0).then_some(seed_count)
-    }
-
-    fn dry_run_crash_seed_count(&self) -> Option<u64> {
-        if self.fuzzer_stats_path().exists() {
-            return None;
-        }
-
-        let log = std::fs::read_to_string(self.stderr_log_path()).ok()?;
-        if !log.contains("We need at least one valid input seed that does not crash") {
-            return None;
-        }
-
-        self.queue_seed_count()
-    }
-
-    fn maybe_cleanup_stderr_log(&self) {
-        if std::env::var("FUZZOR_AFL_DEBUG").is_ok() {
-            return;
-        }
-
-        if self.fuzzer_stats_path().exists() {
-            let _ = std::fs::remove_file(self.stderr_log_path());
-        }
-    }
 }
 
 #[async_trait]
@@ -108,9 +62,9 @@ impl Fuzzer for AflppFuzzer {
     async fn get_stats(&self) -> FuzzerStats {
         let mut stats = FuzzerStats::default();
 
-        if let Ok(stat_file) = std::fs::read_to_string(self.fuzzer_stats_path()) {
-            self.maybe_cleanup_stderr_log();
-
+        if let Ok(stat_file) =
+            std::fs::read_to_string(self.out_dir.join(self.id.to_string()).join("fuzzer_stats"))
+        {
             let mut afl_fuzzer_stats = HashMap::new();
             stat_file
                 .lines()
@@ -153,10 +107,6 @@ impl Fuzzer for AflppFuzzer {
                         .unwrap_or(0.0),
                 );
             }
-        } else if let Some(seed_count) = self.dry_run_crash_seed_count() {
-            // Report dry run seed crashes as solution candidates.
-            stats.corpus_count = seed_count;
-            stats.saved_crashes = seed_count;
         }
 
         stats
@@ -164,7 +114,7 @@ impl Fuzzer for AflppFuzzer {
 
     fn get_push_corpus(&self) -> Option<PathBuf> {
         if self.id == 0 {
-            Some(self.queue_dir())
+            Some(self.out_dir.join(self.id.to_string()).join("queue"))
         } else {
             None
         }
@@ -184,9 +134,6 @@ impl Fuzzer for AflppFuzzer {
         let mut solution_dirs = vec![self.out_dir.join(self.id.to_string()).join("crashes")];
         if !ignore_hangs {
             solution_dirs.push(self.out_dir.join(self.id.to_string()).join("hangs"));
-        }
-        if self.dry_run_crash_seed_count().is_some() {
-            solution_dirs.push(self.queue_dir());
         }
         solution_dirs
     }
@@ -252,16 +199,16 @@ impl Fuzzer for AflppFuzzer {
         command.envs(&self.env);
 
         command.stdout(Stdio::null());
-        let log_path = self.stderr_log_path();
-        let log_file = std::fs::File::create(&log_path).expect("Could not create AFL++ log file");
         if std::env::var("FUZZOR_AFL_DEBUG").is_ok() {
-            log::info!(
-                "AFL++ instance {} stderr is logged to {:?}",
-                self.id,
-                log_path
-            );
+            let log_path = self
+                .workspace
+                .join(format!("aflpp_instance_{}.log", self.id));
+            let log_file =
+                std::fs::File::create(&log_path).expect("Could not create AFL++ log file");
+            command.stderr(Stdio::from(log_file));
+        } else {
+            command.stderr(Stdio::null());
         }
-        command.stderr(Stdio::from(log_file));
 
         let host_env: HashMap<String, String> = std::env::vars().collect();
         command.envs(host_env);
