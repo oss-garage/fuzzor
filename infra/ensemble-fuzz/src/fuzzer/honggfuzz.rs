@@ -1,15 +1,9 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::sync::Arc;
 
 use async_trait::async_trait;
 use fuzzor_infra::FuzzerStats;
-use rand::distributions::{Alphanumeric, DistString};
-use tokio::{
-    io::{AsyncBufReadExt, BufReader},
-    sync::Mutex,
-};
 
 use super::Fuzzer;
 
@@ -17,11 +11,8 @@ pub struct HonggFuzzer {
     binary: PathBuf,
     corpus: PathBuf,
     solutions: PathBuf,
+    stats_file: PathBuf,
     num_threads: u64,
-
-    last_stats: Arc<Mutex<FuzzerStats>>,
-    has_seen_stats: Arc<Mutex<bool>>,
-    tail_stats_proc: Option<tokio::process::Child>,
 }
 
 impl HonggFuzzer {
@@ -30,13 +21,36 @@ impl HonggFuzzer {
             binary,
             corpus: workspace.join("corpus"),
             solutions: workspace.join("solutions"),
+            stats_file: workspace.join("honggfuzz.stats"),
             num_threads,
-
-            last_stats: Arc::new(Mutex::new(FuzzerStats::default())),
-            has_seen_stats: Arc::new(Mutex::new(false)),
-            tail_stats_proc: None,
         }
     }
+}
+
+/// Parse a line from the honggfuzz stats file:
+///
+/// `# unix_time, last_cov_update, total_exec, exec_per_sec, crashes, unique_crashes, hangs, edge_cov, block_cov, corpus_count`
+///
+/// Returns `None` for comment lines as well as malformed or partially written
+/// lines (the stats file is parsed while honggfuzz is appending to it).
+fn parse_stats_line(line: &str) -> Option<FuzzerStats> {
+    if line.starts_with('#') {
+        return None;
+    }
+
+    let fields = line
+        .split(',')
+        .map(|num_str| num_str.trim().parse::<u64>())
+        .collect::<Result<Vec<u64>, _>>()
+        .ok()?;
+
+    Some(FuzzerStats {
+        execs_per_sec: *fields.get(3)? as f64,
+        saved_crashes: *fields.get(5)?,
+        // saved_hangs: *fields.get(6)?, // honggfuzz does not save timeouts to disk :(
+        corpus_count: *fields.get(9)?,
+        ..FuzzerStats::default()
+    })
 }
 
 #[async_trait]
@@ -50,12 +64,25 @@ impl Fuzzer for HonggFuzzer {
     }
 
     async fn get_stats(&self) -> FuzzerStats {
-        let stats = self.last_stats.lock().await.clone();
-        stats.clone()
+        let Ok(contents) = std::fs::read_to_string(&self.stats_file) else {
+            return FuzzerStats::default();
+        };
+
+        contents
+            .lines()
+            .rev()
+            .find_map(parse_stats_line)
+            .unwrap_or_default()
     }
 
     async fn has_started_fuzzing(&self) -> bool {
-        *self.has_seen_stats.lock().await
+        std::fs::read_to_string(&self.stats_file)
+            .map(|contents| {
+                contents
+                    .lines()
+                    .any(|line| parse_stats_line(line).is_some())
+            })
+            .unwrap_or(false)
     }
 
     fn get_push_corpus(&self) -> Option<PathBuf> {
@@ -73,27 +100,7 @@ impl Fuzzer for HonggFuzzer {
         let _ = std::fs::create_dir_all(&self.corpus);
         let _ = std::fs::create_dir_all(&self.solutions);
 
-        let stats_file = std::env::temp_dir().join(format!(
-            "honggfuzz-{}.stats",
-            Alphanumeric.sample_string(&mut rand::thread_rng(), 16)
-        ));
-
-        // TODO there must be a more elegant way to get the stats
-        let mut tail_stats_proc = tokio::process::Command::new("tail")
-            .args(vec!["--follow", "--retry", stats_file.to_str().unwrap()])
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .kill_on_drop(true)
-            .spawn()
-            .expect("Could not start honggfuzz stats tail");
-
-        spawn_honggfuzz_stats_parser(
-            BufReader::new(tail_stats_proc.stdout.take().unwrap()),
-            self.last_stats.clone(),
-            self.has_seen_stats.clone(),
-        );
-
-        self.tail_stats_proc = Some(tail_stats_proc);
+        let _ = std::fs::remove_file(&self.stats_file);
 
         let num_threads_str = self.num_threads.to_string();
         let args = vec![
@@ -102,7 +109,7 @@ impl Fuzzer for HonggFuzzer {
             "--verbose",
             "--quiet",
             "--statsfile",
-            stats_file.to_str().unwrap(),
+            self.stats_file.to_str().unwrap(),
             "--input",
             self.corpus.to_str().unwrap(),
             "--crashdir",
@@ -123,37 +130,4 @@ impl Fuzzer for HonggFuzzer {
             .spawn()
             .expect("Could not start honggfuzz instance")
     }
-}
-
-fn spawn_honggfuzz_stats_parser(
-    stdout: BufReader<tokio::process::ChildStdout>,
-    last_stats: Arc<Mutex<FuzzerStats>>,
-    has_seen_stats: Arc<Mutex<bool>>,
-) {
-    let mut lines = stdout.lines();
-
-    tokio::spawn(async move {
-        while let Ok(Some(line)) = lines.next_line().await {
-            // # unix_time, last_cov_update, total_exec, exec_per_sec, crashes, unique_crashes, hangs, edge_cov, block_cov
-            if line.starts_with("#") {
-                continue;
-            }
-
-            log::trace!("honggfuzz: {}", line);
-
-            let current_stats: Vec<u64> = line
-                .split(",")
-                .map(|num_str| num_str.trim().parse::<u64>().unwrap())
-                .collect();
-
-            let mut stats = last_stats.lock().await;
-            stats.execs_per_sec = current_stats[3] as f64;
-            stats.saved_crashes = current_stats[5];
-            // stats.saved_hangs = current_stats[6]; // hongfuzz does not save timeouts to disk :(
-            // TODO corpus count
-
-            let mut seen = has_seen_stats.lock().await;
-            *seen = true;
-        }
-    });
 }
