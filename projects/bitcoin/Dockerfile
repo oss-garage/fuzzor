@@ -18,7 +18,7 @@ RUN if [ -n "$PR_NUMBER" ]; then \
     else \
       git clone --depth 1 --branch $BRANCH https://github.com/$OWNER/$REPO.git; \
     fi
-RUN make -C bitcoin/depends NO_QT=1 NO_ZMQ=1 NO_USDT=1 NO_IPC=1 download-linux SOURCES_PATH=$SOURCES_PATH
+RUN make -C bitcoin/depends NO_QT=1 NO_ZMQ=1 NO_USDT=1 download-linux SOURCES_PATH=$SOURCES_PATH
 
 RUN mv ./bitcoin/test/sanitizer_suppressions/ubsan ./ubsan_suppressions
 
