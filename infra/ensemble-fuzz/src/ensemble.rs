@@ -126,7 +126,7 @@ pub async fn start_ensemble_task(
         use tokio::time::{interval, Duration, Instant};
         let mut stats_interval = interval(Duration::from_secs(stats_interval));
         let mut interval = interval(Duration::from_secs(sync_interval));
-        let startup_deadline = Instant::now() + Duration::from_secs(180);
+        let startup_deadline = Instant::now() + Duration::from_secs(600);
 
         let mut quit = false;
         while !quit {
