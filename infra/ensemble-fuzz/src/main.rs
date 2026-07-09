@@ -34,10 +34,12 @@ fn num_cores_requested(options: &EnsembleOptions) -> usize {
         options.aflpp_ubsan_binary.is_some(),
         options.aflpp_asan_binary.is_some(),
         options.aflpp_msan_binary.is_some(),
+        options.aflpp_tsan_binary.is_some(),
         options.libfuzzer_binary.is_some(),
         options.libfuzzer_ubsan_binary.is_some(),
         options.libfuzzer_asan_binary.is_some(),
         options.libfuzzer_msan_binary.is_some(),
+        options.libfuzzer_tsan_binary.is_some(),
         options.native_go_binary.is_some(),
         options.honggfuzz_binary.is_some(),
         options.libfuzzer_value_profile,
@@ -95,6 +97,7 @@ fn setup_aflpp_instances(
             options.aflpp_msan_binary.clone(),
             options.aflpp_ubsan_binary.clone(),
             options.aflpp_asan_binary.clone(),
+            options.aflpp_tsan_binary.clone(),
         ];
 
         for san in sanitizer_bins.iter() {
@@ -180,6 +183,7 @@ fn setup_libfuzzer_instances(options: &EnsembleOptions, fuzzers: &mut Vec<Shared
             ("ubsan", options.libfuzzer_ubsan_binary.clone()),
             ("asan", options.libfuzzer_asan_binary.clone()),
             ("msan", options.libfuzzer_msan_binary.clone()),
+            ("tsan", options.libfuzzer_tsan_binary.clone()),
         ];
 
         for (name, bin) in sanitizer_bins.iter() {

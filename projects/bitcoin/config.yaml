@@ -16,6 +16,7 @@ sanitizers:
 - Address
 - Undefined
 - Memory
+- Thread
 - Coverage
 - CmpLog
 - ValueProfile

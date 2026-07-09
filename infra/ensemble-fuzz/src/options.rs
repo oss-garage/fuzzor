@@ -14,6 +14,8 @@ pub struct EnsembleOptions {
     pub aflpp_asan_binary: Option<PathBuf>,
     #[arg(long = "aflpp-msan-binary", help = "Specify a afl++ msan binary")]
     pub aflpp_msan_binary: Option<PathBuf>,
+    #[arg(long = "aflpp-tsan-binary", help = "Specify a afl++ tsan binary")]
+    pub aflpp_tsan_binary: Option<PathBuf>,
     #[arg(
         long = "aflpp-occupy",
         help = "Occupy left over CPUs with afl++ instances",
@@ -45,6 +47,11 @@ pub struct EnsembleOptions {
         help = "Specify a libFuzzer msan binary"
     )]
     pub libfuzzer_msan_binary: Option<PathBuf>,
+    #[arg(
+        long = "libfuzzer-tsan-binary",
+        help = "Specify a libFuzzer tsan binary"
+    )]
+    pub libfuzzer_tsan_binary: Option<PathBuf>,
     #[arg(
         long = "libfuzzer-value-profile",
         help = "Ensemble a libFuzzer instance configured with -use_value_profile",

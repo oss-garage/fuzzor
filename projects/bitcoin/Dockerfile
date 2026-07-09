@@ -21,6 +21,7 @@ RUN if [ -n "$PR_NUMBER" ]; then \
 RUN make -C bitcoin/depends NO_QT=1 NO_ZMQ=1 NO_USDT=1 download-linux SOURCES_PATH=$SOURCES_PATH
 
 RUN mv ./bitcoin/test/sanitizer_suppressions/ubsan ./ubsan_suppressions
+RUN mv ./bitcoin/test/sanitizer_suppressions/tsan ./tsan_suppressions
 
 COPY ./config.yaml .
 COPY ./build.sh .
@@ -30,4 +31,5 @@ ENV FUZZOR_HONGGFUZZ_NO_MINIMIZE=1
 RUN --mount=type=cache,target=/ccache/ \
     --mount=type=cache,target=/ccache_cmplog/ \
     --mount=type=cache,target=/ccache_asan/ \
+    --mount=type=cache,target=/ccache_tsan/ \
     builder $PWD/config.yaml $PWD/build.sh $FUZZOR_HARNESSES
