@@ -32,6 +32,7 @@ impl StackTrace for LibFuzzerStackTrace {
                 || line.contains("==ERROR")
                 || line.contains("== ERROR")
                 || line.contains("==WARNING")
+                || line.contains("WARNING: ThreadSanitizer:")
             {
                 entered_trace = true;
             }
@@ -44,6 +45,8 @@ impl StackTrace for LibFuzzerStackTrace {
                 let trace_split = balanced_bracket_split(line, ' ');
                 if trace_split.len() > 3 && trace_split[2] == "in" {
                     frames.push(trace_split[3].to_string());
+                } else if trace_split.len() > 2 && !trace_split[1].starts_with("0x") { 
+                    frames.push(trace_split[1].to_string());
                 }
             }
         }
@@ -408,6 +411,44 @@ Shadow byte legend (one shadow byte represents 8 application bytes):
  Left alloca redzone:     ca
  Right alloca redzone:    cb
 ==4328==ABORTING
+            "#,
+            r#"
+==================
+WARNING: ThreadSanitizer: data race (pid=114265)
+  Read of size 8 at 0x7b1400025170 by thread T4:
+    #0 std::__1::__tree<std::__1::__value_type<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> >, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> > >, std::__1::__map_value_compare<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> >, std::__1::__value_type<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> >, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> > >, std::__1::less<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> > >, true>, std::__1::allocator<std::__1::__value_type<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> >, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> > > > >::destroy(std::__1::__tree_node<std::__1::__value_type<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> >, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> > >, void*>*) /usr/lib/llvm-10/bin/../include/c++/v1/__tree:1833:51 (bitcoind+0x3ae331)
+    #1 std::__1::__tree<std::__1::__value_type<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> >, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> > >, std::__1::__map_value_compare<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> >, std::__1::__value_type<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> >, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> > >, std::__1::less<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> > >, true>, std::__1::allocator<std::__1::__value_type<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> >, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> > > > >::~__tree() <null> (bitcoind+0x998157)
+    #2 CZMQAbstractPublishNotifier::SendZmqMessage(char const*, void const*, unsigned long) /tmp/cirrus-ci-build/ci/scratch/build/bitcoin-x86_64-pc-linux-gnu/src/zmq/zmqpublishnotifier.cpp:170:14 (bitcoind+0x787f06)
+    #3 CZMQPublishHashTransactionNotifier::NotifyTransaction(CTransaction const&) /tmp/cirrus-ci-build/ci/scratch/build/bitcoin-x86_64-pc-linux-gnu/src/zmq/zmqpublishnotifier.cpp:197:12 (bitcoind+0x787f06)
+    #4 CZMQNotificationInterface::TransactionAddedToMempool(std::__1::shared_ptr<CTransaction const> const&, unsigned long)::$_1::operator()(CZMQAbstractNotifier*) const /tmp/cirrus-ci-build/ci/scratch/build/bitcoin-x86_64-pc-linux-gnu/src/zmq/zmqnotificationinterface.cpp:147:26 (bitcoind+0x7855c6)
+    #5 void (anonymous namespace)::TryForEachAndRemoveFailed<CZMQNotificationInterface::TransactionAddedToMempool(std::__1::shared_ptr<CTransaction const> const&, unsigned long)::$_1>(std::__1::list<std::__1::unique_ptr<CZMQAbstractNotifier, std::__1::default_delete<CZMQAbstractNotifier> >, std::__1::allocator<std::__1::unique_ptr<CZMQAbstractNotifier, std::__1::default_delete<CZMQAbstractNotifier> > > >&, CZMQNotificationInterface::TransactionAddedToMempool(std::__1::shared_ptr<CTransaction const> const&, unsigned long)::$_1 const&) /tmp/cirrus-ci-build/ci/scratch/build/bitcoin-x86_64-pc-linux-gnu/src/zmq/zmqnotificationinterface.cpp:121:13 (bitcoind+0x7855c6)
+    #6 CZMQNotificationInterface::TransactionAddedToMempool(std::__1::shared_ptr<CTransaction const> const&, unsigned long) /tmp/cirrus-ci-build/ci/scratch/build/bitcoin-x86_64-pc-linux-gnu/src/zmq/zmqnotificationinterface.cpp:146:5 (bitcoind+0x7855c6)
+    #17 SingleThreadedSchedulerClient::ProcessQueue() /tmp/cirrus-ci-build/ci/scratch/build/bitcoin-x86_64-pc-linux-gnu/src/scheduler.cpp:173:5 (bitcoind+0x6ee1ba)
+    #27 CScheduler::serviceQueue() /tmp/cirrus-ci-build/ci/scratch/build/bitcoin-x86_64-pc-linux-gnu/src/scheduler.cpp:60:17 (bitcoind+0x6ed175)
+    #31 boost::detail::thread_data<AppInitMain(util::Ref const&, NodeContext&, interfaces::BlockAndHeaderTipInfo*)::$_6>::run() /tmp/cirrus-ci-build/depends/x86_64-pc-linux-gnu/include/boost/thread/detail/thread.hpp:120:17 (bitcoind+0x1403c1)
+    #32 boost::(anonymous namespace)::thread_proxy(void*) <null> (bitcoind+0x87b28e)
+  Previous write of size 8 at 0x7b1400025170 by thread T11:
+    #0 operator new(unsigned long) <null> (bitcoind+0x11626b)
+    #1 std::__1::__libcpp_allocate(unsigned long, unsigned long) /usr/lib/llvm-10/bin/../include/c++/v1/new:253:10 (bitcoind+0x585eed)
+    #2 std::__1::allocator<std::__1::__tree_node<std::__1::__value_type<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> >, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> > >, void*> >::allocate(unsigned long, void const*) /usr/lib/llvm-10/bin/../include/c++/v1/memory:1864:37 (bitcoind+0x585eed)
+  Location is heap block of size 80 at 0x7b1400025170 allocated by thread T11:
+    #0 operator new(unsigned long) <null> (bitcoind+0x11626b)
+    #1 std::__1::__libcpp_allocate(unsigned long, unsigned long) /usr/lib/llvm-10/bin/../include/c++/v1/new:253:10 (bitcoind+0x585eed)
+  Thread T4 'b-scheduler' (tid=114305, running) created by main thread at:
+    #0 pthread_create <null> (bitcoind+0x8935b)
+    #1 boost::thread::start_thread_noexcept() <null> (bitcoind+0x87b18d)
+    #2 AppInit(int, char**) /tmp/cirrus-ci-build/ci/scratch/build/bitcoin-x86_64-pc-linux-gnu/src/bitcoind.cpp:142:43 (bitcoind+0x1191a3)
+    #3 main /tmp/cirrus-ci-build/ci/scratch/build/bitcoin-x86_64-pc-linux-gnu/src/bitcoind.cpp:172:13 (bitcoind+0x1191a3)
+  Thread T11 'ZMQbg/1' (tid=114340, running) created by main thread at:
+    #0 pthread_create <null> (bitcoind+0x8935b)
+    #1 zmq::thread_t::start(void (*)(void*), void*) <null> (bitcoind+0x9d2918)
+    #2 CZMQNotificationInterface::Initialize() /tmp/cirrus-ci-build/ci/scratch/build/bitcoin-x86_64-pc-linux-gnu/src/zmq/zmqnotificationinterface.cpp:87:23 (bitcoind+0x78475c)
+    #3 CZMQNotificationInterface::Create() /tmp/cirrus-ci-build/ci/scratch/build/bitcoin-x86_64-pc-linux-gnu/src/zmq/zmqnotificationinterface.cpp:60:36 (bitcoind+0x784225)
+    #4 AppInitMain(util::Ref const&, NodeContext&, interfaces::BlockAndHeaderTipInfo*) /tmp/cirrus-ci-build/ci/scratch/build/bitcoin-x86_64-pc-linux-gnu/src/init.cpp:1522:36 (bitcoind+0x13448a)
+    #5 AppInit(int, char**) /tmp/cirrus-ci-build/ci/scratch/build/bitcoin-x86_64-pc-linux-gnu/src/bitcoind.cpp:142:43 (bitcoind+0x1191a3)
+    #6 main /tmp/cirrus-ci-build/ci/scratch/build/bitcoin-x86_64-pc-linux-gnu/src/bitcoind.cpp:172:13 (bitcoind+0x1191a3)
+SUMMARY: ThreadSanitizer: data race /usr/lib/llvm-10/bin/../include/c++/v1/__tree:1833:51 in std::__1::__tree<std::__1::__value_type<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> >, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> >
+==================
             "#,
         ];
 

@@ -117,6 +117,7 @@ async fn main() -> Result<(), std::io::Error> {
         Sanitizer::Undefined,
         Sanitizer::Address,
         Sanitizer::Memory,
+        Sanitizer::Thread,
     ];
     let libfuzzer_harnesses: Vec<(PathBuf, Sanitizer)> = sanitizers
         .iter()

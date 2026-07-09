@@ -181,6 +181,7 @@ impl Reproducer<LibFuzzerReproducerError> for LibFuzzerReproducer {
                     (_, Sanitizer::Address) => SolutionCause::AsanCrash,
                     (_, Sanitizer::Undefined) => SolutionCause::UbsanCrash,
                     (_, Sanitizer::Memory) => SolutionCause::MsanCrash,
+                    (_, Sanitizer::Thread) => SolutionCause::TsanCrash,
                     (_, _) => SolutionCause::Crash,
                 },
                 input: input_bytes,

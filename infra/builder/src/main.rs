@@ -130,6 +130,16 @@ async fn build_cpp(
                 ("CXXFLAGS", "-O2"),
             ],
         },
+        (FuzzEngine::AflPlusPlus, Sanitizer::Thread) => BuildEnv {
+            cc: AFL_CLANG_CC,
+            cxx: AFL_CLANG_CXX,
+            envs: &[
+                ("AFL_USE_TSAN", "1"),
+                ("CCACHE_DIR", "/ccache_tsan/"),
+                ("CFLAGS", "-O2 -g -fno-omit-frame-pointer"),
+                ("CXXFLAGS", "-O2 -g -fno-omit-frame-pointer"),
+            ],
+        },
         (FuzzEngine::AflPlusPlus, Sanitizer::Memory) => BuildEnv {
             cc: AFL_CLANG_CC,
             cxx: AFL_CLANG_CXX,
@@ -163,6 +173,15 @@ async fn build_cpp(
                 ("LIB_FUZZING_ENGINE", "-fsanitize=fuzzer,address"),
                 ("CFLAGS", "-O2 -fsanitize=fuzzer-no-link,address"),
                 ("CXXFLAGS", "-O2 -fsanitize=fuzzer-no-link,address"),
+            ],
+        },
+        (FuzzEngine::LibFuzzer, Sanitizer::Thread) => BuildEnv {
+            cc: "clang",
+            cxx: "clang++",
+            envs: &[
+                ("LIB_FUZZING_ENGINE", "-fsanitize=fuzzer,thread"),
+                ("CFLAGS", "-O2 -g -fno-omit-frame-pointer -fsanitize=fuzzer-no-link,thread"),
+                ("CXXFLAGS", "-O2 -g -fno-omit-frame-pointer -fsanitize=fuzzer-no-link,thread"),
             ],
         },
         (FuzzEngine::LibFuzzer, Sanitizer::Memory) => BuildEnv {

@@ -104,7 +104,12 @@ impl FuzzerConfiguration {
 
         if !self.config.has_engine(&FuzzEngine::AflPlusPlus) {
             // Add sanitizer instances only if AFL++ is not present
-            for sanitizer in &[Sanitizer::Address, Sanitizer::Undefined, Sanitizer::Memory] {
+            for sanitizer in &[
+                Sanitizer::Address,
+                Sanitizer::Undefined,
+                Sanitizer::Memory,
+                Sanitizer::Thread,
+            ] {
                 self.try_add_fuzzer(FuzzEngine::LibFuzzer, sanitizer.clone());
             }
 
@@ -152,6 +157,7 @@ impl FuzzerConfiguration {
             Sanitizer::Address,
             Sanitizer::Undefined,
             Sanitizer::Memory,
+            Sanitizer::Thread,
         ] {
             self.try_add_fuzzer(FuzzEngine::AflPlusPlus, sanitizer.clone());
         }
@@ -165,6 +171,12 @@ impl FuzzerConfiguration {
         // Set ASAN options
         command.env("ASAN_OPTIONS", 
             "strict_string_checks=1:detect_invalid_pointer_pairs=2:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:abort_on_error=1:symbolize=0");
+
+        // Set TSAN options
+        command.env(
+            "TSAN_OPTIONS",
+            "suppressions=/workdir/tsan_suppressions:halt_on_error=1:abort_on_error=1",
+        );
 
         // Add all configured fuzzers
         for (engine, sanitizer) in &self.supported_fuzzers {
@@ -206,6 +218,7 @@ fn add_fuzzer(
         Sanitizer::Address => Some("asan"),
         Sanitizer::Undefined => Some("ubsan"),
         Sanitizer::Memory => Some("msan"),
+        Sanitizer::Thread => Some("tsan"),
         Sanitizer::CmpLog => Some("cmplog"),
         Sanitizer::SemSan(_) => Some("secondary"),
     };
