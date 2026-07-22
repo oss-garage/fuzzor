@@ -45,7 +45,7 @@ impl StackTrace for LibFuzzerStackTrace {
                 let trace_split = balanced_bracket_split(line, ' ');
                 if trace_split.len() > 3 && trace_split[2] == "in" {
                     frames.push(trace_split[3].to_string());
-                } else if trace_split.len() > 2 && !trace_split[1].starts_with("0x") { 
+                } else if trace_split.len() > 2 && !trace_split[1].starts_with("0x") {
                     frames.push(trace_split[1].to_string());
                 }
             }

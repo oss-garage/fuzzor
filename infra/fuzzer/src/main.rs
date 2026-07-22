@@ -27,6 +27,7 @@ struct Options {
 struct FuzzerConfiguration {
     config: ProjectConfig,
     harness_config: HarnessConfig,
+    harness: String,
     total_cores: usize,
     supported_fuzzers: Vec<(FuzzEngine, Sanitizer)>,
     cores_assigned: usize,
@@ -34,10 +35,11 @@ struct FuzzerConfiguration {
 }
 
 impl FuzzerConfiguration {
-    fn new(config: ProjectConfig, harness_config: HarnessConfig) -> Self {
+    fn new(config: ProjectConfig, harness_config: HarnessConfig, harness: String) -> Self {
         Self {
             config,
             harness_config,
+            harness,
             total_cores: num_cpus::get(),
             supported_fuzzers: Vec::new(),
             cores_assigned: 0,
@@ -53,6 +55,7 @@ impl FuzzerConfiguration {
         if self.has_available_cores()
             && self.config.has_engine(&engine)
             && self.config.has_sanitizer(&sanitizer)
+            && (sanitizer != Sanitizer::Thread || self.config.harness_has_tsan(&self.harness))
         {
             self.supported_fuzzers.push((engine, sanitizer));
             self.cores_assigned += 1;
@@ -253,7 +256,7 @@ async fn main() -> Result<(), std::io::Error> {
     )
     .unwrap_or(HarnessConfig::default());
 
-    let mut fuzzer_config = FuzzerConfiguration::new(config, harness_config);
+    let mut fuzzer_config = FuzzerConfiguration::new(config, harness_config, opts.harness.clone());
 
     // Configure fuzzers
     fuzzer_config.configure_native_go();

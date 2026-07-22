@@ -26,3 +26,13 @@ fuzz_env_var: FUZZ
 
 no_stack_limit_harnesses:
 - str_printf
+
+tsan_harnesses:
+- threadpool
+- dbwrapper_concurrent_reads
+- coinscache_sim
+- coins_view_overlay
+- coins_view_stacked
+- coins_view_db
+- dbwrapper_threaded
+- ipc

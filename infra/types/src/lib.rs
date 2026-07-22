@@ -86,6 +86,7 @@ pub struct ProjectConfig {
     pub architectures: Option<Vec<CpuArchitecture>>,
     pub fuzz_env_var: Option<String>,
     pub no_stack_limit_harnesses: Option<Vec<String>>,
+    pub tsan_harnesses: Option<Vec<String>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
@@ -114,6 +115,12 @@ impl ProjectConfig {
         self.no_stack_limit_harnesses
             .as_ref()
             .is_some_and(|harnesses| harnesses.iter().any(|h| h == harness_name))
+    }
+
+    pub fn harness_has_tsan(&self, harness_name: &str) -> bool {
+        self.tsan_harnesses.as_ref().map_or(true, |harnesses| {
+            harnesses.iter().any(|h| h == harness_name)
+        })
     }
 }
 
