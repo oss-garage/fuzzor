@@ -24,18 +24,22 @@ async fn minimize_with_afl_nyx(
     harness: &str,
     config: &ProjectConfig,
 ) -> Result<bool, std::io::Error> {
-    if !config.has_engine(&FuzzEngine::AflPlusPlusNyx) || !config.has_sanitizer(&Sanitizer::Address)
-    {
+    let engine = if config.has_engine(&FuzzEngine::AflPlusPlusNyx) {
+        FuzzEngine::AflPlusPlusNyx
+    } else if config.has_engine(&FuzzEngine::FuzzamotoLibAfl) {
+        FuzzEngine::FuzzamotoLibAfl
+    } else {
+        return Ok(false);
+    };
+
+    if !config.has_sanitizer(&Sanitizer::Address) {
         return Ok(false);
     }
 
-    let binary = get_harness_binary(
-        &FuzzEngine::AflPlusPlusNyx,
-        &Sanitizer::Address,
-        harness,
-        config,
-    )
-    .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "Nyx share dir not found"))?;
+    let binary =
+        get_harness_binary(&engine, &Sanitizer::Address, harness, config).ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::NotFound, "Nyx share dir not found")
+        })?;
 
     Command::new(get_afl_tool_path(AflTool::AflCMin))
         .args([

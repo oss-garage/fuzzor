@@ -12,7 +12,7 @@ use reproducer::{
 };
 use std::error::Error;
 
-async fn reproduce<E: Error, R: Reproducer<E>>(reproducer: R, output_dir: &PathBuf) {
+async fn reproduce<E: Error, R: Reproducer<E>>(reproducer: R, output_dir: &PathBuf) -> bool {
     let result = reproducer.reproduce().await;
 
     match result {
@@ -21,16 +21,20 @@ async fn reproduce<E: Error, R: Reproducer<E>>(reproducer: R, output_dir: &PathB
                 Ok(file) => file,
                 Err(err) => {
                     log::error!("Failed to create output file: {}", err);
-                    return;
+                    return false;
                 }
             };
 
             if let Err(err) = serde_yaml::to_writer(output_file, &solution) {
                 log::error!("Failed to write solution to {:?}: {}", output_dir, err);
+                return false;
             }
+
+            true
         }
         Err(err) => {
             log::error!("Failed to reproduce solution: {}", err);
+            false
         }
     }
 }
@@ -105,6 +109,51 @@ async fn main() -> Result<(), std::io::Error> {
                         &opts.output_dir,
                     )
                     .await;
+                }
+            }
+        }
+
+        return Ok(());
+    }
+
+    if config.has_engine(&FuzzEngine::FuzzamotoLibAfl) {
+        let mut files = Vec::new();
+        for path in opts.solutions.iter() {
+            if path.is_file() {
+                files.push(path.clone());
+            } else if path.is_dir() {
+                let mut dir_entries = fs::read_dir(path).await?;
+                while let Some(entry) = dir_entries.next_entry().await? {
+                    files.push(entry.path());
+                }
+            }
+        }
+
+        // It is not known which sanitizer build found a solution, so try them all.
+        let repro_dirs: Vec<PathBuf> = config
+            .fuzzamoto_libafl_sanitizers()
+            .iter()
+            .map(|sanitizer| {
+                get_harness_binary(
+                    &FuzzEngine::FuzzamotoLibAfl,
+                    sanitizer,
+                    &opts.harness,
+                    &config,
+                )
+                .unwrap()
+                .join("repro")
+            })
+            .collect();
+
+        for file in files {
+            for repro_dir in repro_dirs.iter() {
+                if reproduce(
+                    FuzzamotoReproducer::new(repro_dir.clone(), file.clone()),
+                    &opts.output_dir,
+                )
+                .await
+                {
+                    break;
                 }
             }
         }

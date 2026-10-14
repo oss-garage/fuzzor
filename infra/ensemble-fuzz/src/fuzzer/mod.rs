@@ -1,4 +1,5 @@
 pub mod aflpp;
+pub mod fuzzamoto_libafl;
 pub mod honggfuzz;
 pub mod libfuzzer;
 pub mod native_go;

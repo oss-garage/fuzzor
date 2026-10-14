@@ -11,6 +11,7 @@ use tokio::sync::Mutex;
 use ensemble::start_ensemble_task;
 use fuzzer::{
     aflpp::{recommended_aflpp_settings, AflppFuzzer},
+    fuzzamoto_libafl::FuzzamotoLibAflFuzzer,
     honggfuzz::HonggFuzzer,
     libfuzzer::LibFuzzer,
     native_go::NativeGoFuzzer,
@@ -241,6 +242,16 @@ fn setup_native_go_instances(options: &EnsembleOptions, fuzzers: &mut Vec<Shared
     }
 }
 
+fn setup_fuzzamoto_libafl_instances(options: &EnsembleOptions, fuzzers: &mut Vec<SharedFuzzer>) {
+    if let Some(share_dir) = options.fuzzamoto_libafl.as_ref() {
+        fuzzers.push(Arc::new(Mutex::new(FuzzamotoLibAflFuzzer::new(
+            share_dir.clone(),
+            options.workspace.join("corpus"),
+            &options.workspace,
+        ))));
+    }
+}
+
 fn setup_honggfuzz_instances(options: &EnsembleOptions, fuzzers: &mut Vec<SharedFuzzer>) {
     if let Some(binary) = options.honggfuzz_binary.as_ref() {
         let workspace = options.workspace.join("honggfuzz");
@@ -261,6 +272,7 @@ fn setup_fuzzers(options: &EnsembleOptions, cores_requested: usize) -> Vec<Share
     setup_honggfuzz_instances(options, &mut fuzzers);
     setup_semsan_instances(options, &mut fuzzers);
     setup_native_go_instances(options, &mut fuzzers);
+    setup_fuzzamoto_libafl_instances(options, &mut fuzzers);
 
     fuzzers
 }

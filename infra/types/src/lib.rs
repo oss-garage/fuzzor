@@ -18,6 +18,7 @@ pub enum FuzzEngine {
     LibFuzzer,
     AflPlusPlus,
     AflPlusPlusNyx,
+    FuzzamotoLibAfl,
     HonggFuzz,
     SemSan,
     NativeGo,
@@ -115,6 +116,16 @@ impl ProjectConfig {
         self.no_stack_limit_harnesses
             .as_ref()
             .is_some_and(|harnesses| harnesses.iter().any(|h| h == harness_name))
+    }
+
+    /// Sanitizer builds that fuzzamoto-libafl fuzzes with, one after the other.
+    pub fn fuzzamoto_libafl_sanitizers(&self) -> Vec<Sanitizer> {
+        self.sanitizers
+            .iter()
+            .flatten()
+            .filter(|s| get_harness_dir(&FuzzEngine::FuzzamotoLibAfl, s, self).is_some())
+            .cloned()
+            .collect()
     }
 
     pub fn harness_has_tsan(&self, harness_name: &str) -> bool {
@@ -242,6 +253,20 @@ pub fn get_harness_dir(
         (FuzzEngine::AflPlusPlus, Sanitizer::ValueProfile) => None,
         (FuzzEngine::AflPlusPlus, Sanitizer::SemSan(t)) => Some(format!("semsan_{:?}", t)),
         (FuzzEngine::AflPlusPlusNyx, _) => None,
+
+        (FuzzEngine::FuzzamotoLibAfl, Sanitizer::Address) => {
+            Some(String::from("fuzzamoto_libafl_asan"))
+        }
+        (FuzzEngine::FuzzamotoLibAfl, Sanitizer::Memory) => {
+            Some(String::from("fuzzamoto_libafl_msan"))
+        }
+        (FuzzEngine::FuzzamotoLibAfl, Sanitizer::Thread) => {
+            Some(String::from("fuzzamoto_libafl_tsan"))
+        }
+        (FuzzEngine::FuzzamotoLibAfl, Sanitizer::Undefined) => {
+            Some(String::from("fuzzamoto_libafl_ubsan"))
+        }
+        (FuzzEngine::FuzzamotoLibAfl, _) => None,
 
         (FuzzEngine::HonggFuzz, Sanitizer::None) => Some(String::from("honggfuzz")),
         (FuzzEngine::HonggFuzz, Sanitizer::Undefined) => Some(String::from("honggfuzz_ubsan")),

@@ -148,6 +148,30 @@ async fn build_cpp(
                 ("CXXFLAGS", "-fsanitize=memory,fuzzer-no-link -fsanitize-memory-track-origins=2 -fno-omit-frame-pointer -g -O1 -fno-optimize-sibling-calls -nostdinc++ -nostdlib++ -isystem /libcxx_msan/include/c++/v1 -L/libcxx_msan/lib -Wl,-rpath,/libcxx_msan/lib -lc++ -lc++abi -lpthread -Wno-unused-command-line-argument"),
             ],
         },
+        // The sanitizer is enabled by the build script through Bitcoin Core's -DSANITIZERS.
+        (FuzzEngine::FuzzamotoLibAfl, Sanitizer::Address) => BuildEnv {
+            cc: AFL_CLANG_CC,
+            cxx: AFL_CLANG_CXX,
+            envs: &[("CCACHE_DIR", "/ccache_asan/")],
+        },
+        (FuzzEngine::FuzzamotoLibAfl, Sanitizer::Memory) => BuildEnv {
+            cc: AFL_CLANG_CC,
+            cxx: AFL_CLANG_CXX,
+            envs: &[("CCACHE_DIR", "/ccache_msan/")],
+        },
+        (FuzzEngine::FuzzamotoLibAfl, Sanitizer::Thread) => BuildEnv {
+            cc: AFL_CLANG_CC,
+            cxx: AFL_CLANG_CXX,
+            envs: &[
+                ("AFL_LLVM_THREADSAFE_INST", "1"),
+                ("CCACHE_DIR", "/ccache_tsan/"),
+            ],
+        },
+        (FuzzEngine::FuzzamotoLibAfl, Sanitizer::Undefined) => BuildEnv {
+            cc: AFL_CLANG_CC,
+            cxx: AFL_CLANG_CXX,
+            envs: &[("CCACHE_DIR", "/ccache_ubsan/")],
+        },
         (FuzzEngine::LibFuzzer, Sanitizer::None) => BuildEnv {
             cc: "clang",
             cxx: "clang++",

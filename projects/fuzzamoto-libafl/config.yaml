@@ -1,0 +1,20 @@
+name: fuzzamoto-libafl
+
+owner: bitcoin
+repo: bitcoin
+
+language: Cpp
+ccs:
+- Crypt-iQ
+- marcofleon
+
+engines:
+- FuzzamotoLibAfl
+- None
+# Fuzzed one after the other, the coverage build is for reports.
+sanitizers:
+- Address
+- Memory
+- Thread
+- Undefined
+- Coverage

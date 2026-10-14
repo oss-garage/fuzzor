@@ -41,16 +41,20 @@ fn demangle_name(mangled: &str) -> String {
 }
 
 struct CoverageReporter {
+    runner_path: PathBuf,
     binary_path: PathBuf,
 }
 
 impl CoverageReporter {
-    fn new(binary_path: PathBuf) -> Self {
-        Self { binary_path }
+    fn new(runner_path: PathBuf, binary_path: PathBuf) -> Self {
+        Self {
+            runner_path,
+            binary_path,
+        }
     }
 
     async fn run_coverage_binary(&self, corpus_path: &str) -> io::Result<()> {
-        let status = Command::new(&self.binary_path)
+        let status = Command::new(&self.runner_path)
             .arg("-runs=1")
             .arg(corpus_path)
             .kill_on_drop(true)
@@ -188,7 +192,15 @@ async fn main() -> io::Result<()> {
     )
     .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Failed to get harness binary"))?;
 
-    let reporter = CoverageReporter::new(coverage_bin);
+    // Fuzzamoto's coverage build is a scenario/bitcoind pair, reported on bitcoind.
+    let reporter = if config.has_engine(&FuzzEngine::FuzzamotoLibAfl) {
+        CoverageReporter::new(
+            coverage_bin.join("run-coverage"),
+            coverage_bin.join("bitcoind"),
+        )
+    } else {
+        CoverageReporter::new(coverage_bin.clone(), coverage_bin)
+    };
 
     reporter.run_coverage_binary(&opts.corpus).await?;
     reporter.merge_profdata().await?;

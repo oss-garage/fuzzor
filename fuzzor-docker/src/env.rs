@@ -9,7 +9,7 @@ use fuzzor::{
 
 use async_trait::async_trait;
 use futures_util::stream::StreamExt;
-use fuzzor_infra::{FuzzerStats, ReproducedSolution, SolutionCause};
+use fuzzor_infra::{FuzzEngine, FuzzerStats, ReproducedSolution, SolutionCause};
 use serde::{Deserialize, Serialize};
 
 pub const ENSEMBLE_DIR: &str = "/workdir/workspace";
@@ -137,6 +137,11 @@ impl DockerEnv {
             cmd: Some(vec!["/bin/bash".to_string(), "-c".to_string(), full_cmd]),
             host_config: Some(bollard::secret::HostConfig {
                 privileged: Some(true), // for performance
+                // Nyx maps its bitmaps in /dev/shm, docker's 64M default is too small for them.
+                shm_size: params
+                    .project_config
+                    .has_engine(&FuzzEngine::FuzzamotoLibAfl)
+                    .then_some(2 * 1024 * 1024 * 1024),
                 cpuset_cpus: Some(cpuset_cpus),
                 tmpfs: Some(tmpfs),
                 ulimits: Some(resource_limits),
