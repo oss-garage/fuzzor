@@ -252,7 +252,7 @@ impl CampaignScheduler for CoverageBasedScheduler {
 
                     if !current_schedule.contains(harness_name) {
                         newly_scheduled.push(harness_name.as_str());
-                        self.schedule.push_front(harness_name.clone());
+                        self.schedule.push_back(harness_name.clone());
                         current_schedule.insert(harness_name.clone());
                     }
                 }
