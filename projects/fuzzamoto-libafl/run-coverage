@@ -1,0 +1,34 @@
+#!/bin/bash
+#
+# Runs a corpus against the coverage instrumented bitcoind and merges the profiles into
+# `default.profraw`, where the coverage-reporter picks them up. Called with libFuzzer's
+# interface: `run-coverage -runs=1 <corpus dir>`.
+
+set -u
+
+[ "$#" -ge 1 ] || { echo "usage: $0 [-runs=1] <corpus dir>" >&2; exit 2; }
+
+dir=$(dirname "$(readlink -f "$0")")
+corpus=${*: -1}
+# Not /tmp: that is a RAM-backed tmpfs shared with the scenarios' regtest datadirs, and a
+# coverage build produces ~10MB of profile per process.
+profraw_dir=$(mktemp -d -p "$(pwd)")
+trap 'rm -rf "$profraw_dir"' EXIT
+
+run_input() {
+  # %m-%p keeps the profiles of a scenario's nodes apart.
+  LLVM_PROFILE_FILE="$2/%m-%p.profraw" \
+    timeout -k 30 300 "$3/scenario" "$3/bitcoind" < "$1" > /dev/null 2>&1
+}
+export -f run_input
+
+find "$corpus" -type f -print0 |
+  xargs -0 -P "$(nproc)" -I{} bash -c 'run_input "$@"' _ {} "$profraw_dir" "$dir"
+
+find "$profraw_dir" -name '*.profraw' > "$profraw_dir/profiles"
+if [ ! -s "$profraw_dir/profiles" ]; then
+  echo "run-coverage: no profile data was produced" >&2
+  exit 1
+fi
+
+llvm-profdata merge -sparse -f "$profraw_dir/profiles" -o "$(pwd)/default.profraw"

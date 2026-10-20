@@ -63,9 +63,11 @@ async fn get_harness_set(
         .await
         .map_err(|e| format!("Could not create exec in container: {}", e))?;
 
+    // Projects without a libfuzzer or afl++ build (fuzzamoto-libafl) list their coverage build.
     let engines_and_sanitizers = [
         (FuzzEngine::LibFuzzer, Sanitizer::None),
         (FuzzEngine::AflPlusPlus, Sanitizer::None),
+        (FuzzEngine::None, Sanitizer::Coverage),
     ];
 
     let harness_dir = engines_and_sanitizers

@@ -29,6 +29,12 @@ pub struct EnsembleOptions {
     )]
     pub aflpp_nyx: bool,
 
+    #[arg(
+        long = "fuzzamoto-libafl",
+        help = "Specify a nyx share dir for fuzzamoto's libafl fuzzer"
+    )]
+    pub fuzzamoto_libafl: Option<PathBuf>,
+
     /// LibFuzzer options
     #[arg(long = "libfuzzer-binary", help = "Specify a libFuzzer binary")]
     pub libfuzzer_binary: Option<PathBuf>,

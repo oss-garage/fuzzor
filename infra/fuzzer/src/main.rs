@@ -233,6 +233,7 @@ fn add_fuzzer(
         FuzzEngine::HonggFuzz => "honggfuzz",
         FuzzEngine::SemSan => "semsan",
         FuzzEngine::NativeGo => "native-go",
+        FuzzEngine::FuzzamotoLibAfl => panic!("fuzzamoto-libafl is not ensembled"),
     };
 
     let flag = sanitizer_str.map_or(format!("--{}-binary", engine_str), |s| {
@@ -242,6 +243,40 @@ fn add_fuzzer(
     command
         .arg(flag)
         .arg(get_harness_binary(engine, sanitizer, harness, config).unwrap());
+}
+
+/// Fuzz with each sanitizer build in turn, all on every core, splitting the duration between them.
+async fn fuzz_fuzzamoto_libafl(opts: &Options, config: &ProjectConfig) -> std::io::Result<()> {
+    let sanitizers = config.fuzzamoto_libafl_sanitizers();
+    let seconds_to_fuzz =
+        (opts.duration / num_cpus::get() as f64) * 60.0 * 60.0 / sanitizers.len() as f64;
+
+    for sanitizer in sanitizers.iter() {
+        let share_dir = get_harness_binary(
+            &FuzzEngine::FuzzamotoLibAfl,
+            sanitizer,
+            &opts.harness,
+            config,
+        )
+        .unwrap();
+
+        let status = tokio::process::Command::new("ensemble-fuzz")
+            .arg("--fuzzamoto-libafl")
+            .arg(share_dir)
+            .arg("--max-duration")
+            .arg((seconds_to_fuzz as u64).to_string())
+            .arg("--workspace")
+            .arg(&opts.workspace)
+            .kill_on_drop(true)
+            .status()
+            .await?;
+
+        if !status.success() {
+            std::process::exit(status.code().unwrap_or(1));
+        }
+    }
+
+    Ok(())
 }
 
 #[tokio::main]
@@ -255,6 +290,10 @@ async fn main() -> Result<(), std::io::Error> {
             .unwrap_or("".to_string()),
     )
     .unwrap_or(HarnessConfig::default());
+
+    if config.has_engine(&FuzzEngine::FuzzamotoLibAfl) {
+        return fuzz_fuzzamoto_libafl(&opts, &config).await;
+    }
 
     let mut fuzzer_config = FuzzerConfiguration::new(config, harness_config, opts.harness.clone());
 
